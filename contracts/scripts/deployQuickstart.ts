@@ -11,7 +11,7 @@ async function main() {
 
 
 async function deployQuickstart(oracleAddress: string) {
-  const agent = await ethers.deployContract("Quickstart", [oracleAddress], {});
+  const agent = await ethers.deployContract("OpenAiSimpleLLM", [oracleAddress], {});
 
   await agent.waitForDeployment();
 

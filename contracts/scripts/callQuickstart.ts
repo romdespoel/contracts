@@ -1,47 +1,41 @@
-// Import ethers from Hardhat package
-import readline from "readline";
+import {Contract, ethers, Wallet} from "ethers";
+import ABI from "./OpenAiSimpleLLM.json";
+import * as readline from 'readline';
 
-const {ethers} = require("hardhat");
+require("dotenv").config()
 
 async function main() {
-  const contractABI = [
-    "function initializeDalleCall(string memory message) public returns (uint)",
-    "function lastResponse() public view returns (string)"
-  ];
+  const rpcUrl = process.env.RPC_URL
+  if (!rpcUrl) throw Error("Missing RPC_URL in .env")
+  const privateKey = process.env.PRIVATE_KEY_GALADRIEL
+  if (!privateKey) throw Error("Missing PRIVATE_KEY in .env")
+  const contractAddress = process.env.QUICKSTART_CONTRACT_ADDRESS
+  if (!contractAddress) throw Error("Missing SIMPLE_LLM_CONTRACT_ADDRESS in .env")
 
-  if (!process.env.QUICKSTART_CONTRACT_ADDRESS) {
-    throw new Error("QUICKSTART_CONTRACT_ADDRESS env variable is not set.");
+  const provider = new ethers.JsonRpcProvider(rpcUrl)
+  const wallet = new Wallet(
+    privateKey, provider
+  )
+  const contract = new Contract(contractAddress, ABI, wallet)
+
+  // The message you want to start the chat with
+  const message = await getUserInput()
+
+  // Call the sendMessage function
+  const transactionResponse = await contract.sendMessage(message)
+  const receipt = await transactionResponse.wait()
+  console.log(`Message sent, tx hash: ${receipt.hash}`)
+  console.log(`Chat started with message: "${message}"`)
+
+  // Read the LLM response on-chain
+  while (true) {
+    const response = await contract.response();
+    if (response) {
+      console.log("Response from contract:", response);
+      break;
+    }
+    await new Promise(resolve => setTimeout(resolve, 2000))
   }
-
-  const contractAddress = process.env.QUICKSTART_CONTRACT_ADDRESS;
-  const [signer] = await ethers.getSigners();
-
-  // Create a contract instance
-  const contract = new ethers.Contract(contractAddress, contractABI, signer);
-
-  // The content of the image you want to generate
-  const message = await getUserInput();
-
-  // Call the startChat function
-  const transactionResponse = await contract.initializeDalleCall(message);
-  const receipt = await transactionResponse.wait();
-  console.log(`Transaction sent, hash: ${receipt.hash}.\nExplorer: https://explorer.galadriel.com/tx/${receipt.hash}`)
-  console.log(`Image generation started with message: "${message}"`);
-
-  // loop and sleep by 1000ms, and keep printing `lastResponse` in the contract.
-  let lastResponse = await contract.lastResponse();
-  let newResponse = lastResponse;
-
-  // print w/o newline
-  console.log("Waiting for response: ");
-  while (newResponse === lastResponse) {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    newResponse = await contract.lastResponse();
-    console.log(".");
-  }
-
-  console.log(`Image generation completed, image URL: ${newResponse}`)
-
 }
 
 async function getUserInput(): Promise<string | undefined> {
@@ -59,7 +53,7 @@ async function getUserInput(): Promise<string | undefined> {
   }
 
   try {
-    const input = await question("Enter an image description: ")
+    const input = await question("Message ChatGPT: ")
     rl.close()
     return input
   } catch (err) {
@@ -68,9 +62,6 @@ async function getUserInput(): Promise<string | undefined> {
   }
 }
 
+
 main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });
+  .then(() => console.log("Done"))
