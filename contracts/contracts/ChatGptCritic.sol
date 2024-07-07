@@ -5,9 +5,15 @@ pragma solidity ^0.8.9;
 // import "hardhat/console.sol";
 import "./interfaces/IOracle.sol";
 
+interface TaskCallback {
+  function respondEval(
+    string memory _message
+  ) external view returns (string memory);
+}
+
 // @title ChatGpt
 // @notice This contract handles chat interactions and integrates with teeML oracle for LLM and knowledge base queries.
-contract ChatGpt {
+contract ChatGptCritic {
 
     struct ChatRun {
         address owner;
@@ -107,6 +113,7 @@ contract ChatGpt {
             "No message to respond to"
         );
 
+        TaskCallback(run.owner).respondEval(response);
         IOracle.Message memory newMessage = createTextMessage("assistant", response);
         run.messages.push(newMessage);
         run.messagesCount++;
